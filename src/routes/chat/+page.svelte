@@ -1,164 +1,223 @@
 <script>
   import { onMount } from "svelte";
-  import { supabase } from '$lib/auth';
-  
-  /**
-     * @type {any[]}
-     */
+  import { GoogleGenerativeAI } from "@google/generative-ai";
+
+  let userPrompt = "";
   let messages = [];
-  let messageInput = "";
-  
-  // Fetch chat messages
-  const fetchMessages = async () => {
-    const { data } = await supabase.from("messages").select().order("created_at", { ascending: true });
-    messages = data || [];
-  };
+  let isLoading = false;
+  let chatWindow = null; // For auto-scrolling
+  let genAI;
 
-  // Send a message
-  const sendMessage = async () => {
-    if (messageInput.trim() === "") return;
-    
-    // Add user message
-    const userMessage = {
-      content: messageInput,
-      sender: "user",
-      created_at: new Date(),
-    };
-    messages.push(userMessage);
-    messageInput = ""; // Clear input
-
-    // Save to the database
-    await supabase.from("messages").insert([{
-      content: messageInput,
-      sender: "user",
-      created_at: new Date(),
-    }]);
-
-    // Simulate chatbot response
-    setTimeout(() => {
-      const botMessage = {
-        content: "This is a bot response to: " + userMessage.content,
-        sender: "bot",
-        created_at: new Date(),
-      };
-      messages.push(botMessage);
-    }, 1000);
-  };
-
+  // Initialize the Google Generative AI API
   onMount(() => {
-    fetchMessages();
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("API Key is missing!");
+      return;
+    }
+
+    try {
+      genAI = new GoogleGenerativeAI(apiKey);
+    } catch (error) {
+      console.error("Error initializing Google Generative AI:", error);
+    }
   });
+
+  // Scroll the chat window to the bottom
+  const scrollToBottom = () => {
+    if (chatWindow) {
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+  };
+
+  // Generate AI content
+  async function generateContent() {
+    if (!userPrompt.trim() || isLoading) return;
+
+    // Add the user's message to the chat
+    messages = [...messages, { role: "user", content: userPrompt }];
+    const currentPrompt = userPrompt; // Save the user's input for processing
+    userPrompt = ""; // Clear input field
+    isLoading = true;
+
+    try {
+      const result = await genAI.generateText({
+        model: "Gemini 1.5 Pro", // Confirm this model name with your API
+        prompt: currentPrompt,
+        temperature: 0.7, // Adjust for creativity
+        maxOutputTokens: 256, // Set the max response length
+      });
+
+      // Add AI's response
+      messages = [
+        ...messages,
+        { role: "ai", content: result.candidates[0]?.output || "No response." },
+      ];
+    } catch (error) {
+      console.error("Error generating content:", error);
+      messages = [
+        ...messages,
+        { role: "ai", content: "Oops! Something went wrong. Please try again." },
+      ];
+    } finally {
+      isLoading = false;
+      scrollToBottom();
+    }
+  }
 </script>
 
-<div class="chat-container">
-  <div class="chat-window">
-    <div class="messages">
-      {#each messages as message (message.created_at)}
-        <div class={`message ${message.sender}`}>
-          <div class="message-content">{message.content}</div>
-        </div>
-      {/each}
-    </div>
-    <div class="input-area">
-      <textarea 
-        bind:value={messageInput} 
-        placeholder="Type a message..." 
-        rows="1"
-        on:keydown={(e) => { if (e.key === "Enter") sendMessage(); }}
-      ></textarea>
-      <button class="send-button" on:click={sendMessage}>Send</button>
-    </div>
-  </div>
-</div>
-
 <style>
-  .chat-container {
-    max-width: 800px;
+  @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap");
+
+  :global(body) {
+    font-family: "Poppins", sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #141e30, #243b55);
+    color: white;
+  }
+
+  .container {
+    max-width: 900px;
     margin: auto;
-    padding: 2rem;
-    height: 100vh;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-    background: #121212;
-    color: white;
-    font-family: 'Poppins', sans-serif;
+    height: 100vh;
+    padding: 20px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+    color: #ff758c;
+  }
+
+  h2 {
+    font-size: 1rem;
+    color: #ccc;
+    margin-top: -5px;
   }
 
   .chat-window {
-    background: #1e1e2f;
-    border-radius: 12px;
-    padding: 1rem;
+    flex: 1;
+    background: #1f2c40;
+    border-radius: 10px;
+    padding: 15px;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    height: 80%;
+    gap: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  }
+
+  .chat-message {
+    display: flex;
+    margin-bottom: 10px;
+  }
+
+  .user-message {
     justify-content: flex-end;
-    box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.3);
-    overflow-y: scroll;
-    position: relative;
   }
 
-  .messages {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+  .ai-message {
+    justify-content: flex-start;
   }
 
-  .message {
-    max-width: 70%;
-    padding: 10px;
-    border-radius: 12px;
-    margin-bottom: 1rem;
-  }
-
-  .message.user {
-    background: #6a0dad;
-    align-self: flex-end;
-  }
-
-  .message.bot {
-    background: #8a2be2;
-    align-self: flex-start;
-  }
-
-  .message-content {
-    font-size: 1.1rem;
-    line-height: 1.5;
-  }
-
-  .input-area {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 1rem;
-  }
-
-  textarea {
-    width: 100%;
-    padding: 0.8rem;
-    border-radius: 8px;
-    background: #333;
-    color: white;
-    border: none;
-    resize: none;
+  .message-bubble {
+    padding: 10px 15px;
+    border-radius: 20px;
     font-size: 1rem;
+    max-width: 70%;
+    word-wrap: break-word;
   }
 
-  textarea:focus {
+  .user-message .message-bubble {
+    background: linear-gradient(90deg, #6a85b6, #bac8e0);
+    color: black;
+  }
+
+  .ai-message .message-bubble {
+    background: linear-gradient(90deg, #ff758c, #ff7eb3);
+    color: white;
+  }
+
+  footer {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  input {
+    flex: 1;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 15px;
+    font-size: 1rem;
+    background: #243b55;
+    color: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  }
+
+  input:focus {
     outline: none;
   }
 
-  .send-button {
-    background: linear-gradient(45deg, #6a0dad, #8a2be2);
+  button {
+    background: linear-gradient(90deg, #8e44ad, #3498db);
     color: white;
     border: none;
-    padding: 0.8rem 2rem;
-    border-radius: 8px;
-    cursor: pointer;
+    border-radius: 20px;
+    padding: 10px 20px;
     font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
   }
 
-  .send-button:hover {
-    background: linear-gradient(45deg, #8a2be2, #6a0dad);
+  button:hover {
+    background: linear-gradient(90deg, #3498db, #8e44ad);
+  }
+
+  button:disabled {
+    background: #555;
+    cursor: not-allowed;
   }
 </style>
+
+<div class="container">
+  <header>
+    <h1>Akhankhya AI</h1>
+    <h2>Your Creative Partner in Thought</h2>
+  </header>
+
+  <div class="chat-window" bind:this={chatWindow}>
+    {#each messages as message}
+      <div class="chat-message {message.role === 'user' ? 'user-message' : 'ai-message'}">
+        <div class="message-bubble">{message.content}</div>
+      </div>
+    {/each}
+
+    {#if isLoading}
+      <div class="ai-message chat-message">
+        <div class="message-bubble">Typing...</div>
+      </div>
+    {/if}
+  </div>
+
+  <footer>
+    <input
+      type="text"
+      placeholder="Type your message..."
+      bind:value={userPrompt}
+      on:keydown={(e) => e.key === "Enter" && generateContent()}
+      disabled={isLoading}
+    />
+    <button on:click={generateContent} disabled={isLoading || !userPrompt}>
+      Send
+    </button>
+  </footer>
+</div>
