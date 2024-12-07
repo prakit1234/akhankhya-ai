@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
   import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -40,25 +40,18 @@
     userPrompt = ""; // Clear input field
     isLoading = true;
 
-    try {
-      const result = await genAI.generateText({
-        model: "Gemini 1.5 Pro", // Confirm this model name with your API
-        prompt: currentPrompt,
-        temperature: 0.7, // Adjust for creativity
-        maxOutputTokens: 256, // Set the max response length
-      });
+    // Simulate AI typing
+    messages = [...messages, { role: "ai", content: "..." }]; // Placeholder for AI response
 
-      // Add AI's response
-      messages = [
-        ...messages,
-        { role: "ai", content: result.candidates[0]?.output || "No response." },
-      ];
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-exp-1206" });
+      const result = await model.generateContent(currentPrompt);
+      
+      // Replace the placeholder with the actual AI response
+      messages[messages.length - 1] = { role: "ai", content: result.response.text() || "No response." };
     } catch (error) {
       console.error("Error generating content:", error);
-      messages = [
-        ...messages,
-        { role: "ai", content: "Oops! Something went wrong. Please try again." },
-      ];
+      messages[messages.length - 1] = { role: "ai", content: "Oops! Something went wrong. Please try again." };
     } finally {
       isLoading = false;
       scrollToBottom();
@@ -89,16 +82,19 @@
   header {
     text-align: center;
     margin-bottom: 10px;
+    background: linear-gradient(90deg, #ff758c, #ff7eb3);
+    padding: 20px;
+    border-radius: 10px;
   }
 
   h1 {
     font-size: 2.5rem;
-    color: #ff758c;
+    margin: 0;
   }
 
   h2 {
     font-size: 1rem;
-    color: #ccc;
+    color: #fff;
     margin-top: -5px;
   }
 
@@ -145,79 +141,81 @@
     color: white;
   }
 
+  .loading {
+    font-style: italic;
+    color: #ccc;
+  }
+
   footer {
     display: flex;
     gap: 10px;
     margin-top: 10px;
   }
 
-  input {
+  .input-container {
+    display: flex;
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .input-field {
     flex: 1;
+    padding: 10px;
     border: none;
     border-radius: 20px;
-    padding: 10px 15px;
+    outline: none;
     font-size: 1rem;
-    background: #243b55;
-    color: white;
+    background: #fff;
+    color: #333;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
   }
 
-  input:focus {
-    outline: none;
-  }
-
-  button {
-    background: linear-gradient(90deg, #8e44ad, #3498db);
-    color: white;
+  .send-button {
+    padding: 10px 15px;
     border: none;
     border-radius: 20px;
-    padding: 10px 20px;
-    font-size: 1rem;
-    font-weight: bold;
+    background: linear-gradient(90deg, #ff758c, #ff7eb3);
+    color: white;
     cursor: pointer;
-    transition: background 0.3s;
+    font-size: 1rem;
+    transition: background 0.3s, transform 0.2s;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
   }
 
-  button:hover {
-    background: linear-gradient(90deg, #3498db, #8e44ad);
-  }
-
-  button:disabled {
-    background: #555;
-    cursor: not-allowed;
+  .send-button:hover {
+    background: linear-gradient(90deg, #ff7eb3, #ff758c);
+    transform: scale(1.05);
   }
 </style>
 
 <div class="container">
   <header>
-    <h1>Akhankhya AI</h1>
-    <h2>Your Creative Partner in Thought</h2>
+    <h1>Chat with Akhankhya AI</h1>
+    <h2>Ask me anything!</h2>
   </header>
-
   <div class="chat-window" bind:this={chatWindow}>
     {#each messages as message}
-      <div class="chat-message {message.role === 'user' ? 'user-message' : 'ai-message'}">
-        <div class="message-bubble">{message.content}</div>
+      <div class="chat-message {message.role}-message">
+        <div class="message-bubble">
+          {#if message.role === 'ai' && message.content === "..."}
+            <span class="loading">AI is typing...</span>
+          {:else}
+            {message.content}
+          {/if}
+        </div>
       </div>
     {/each}
-
-    {#if isLoading}
-      <div class="ai-message chat-message">
-        <div class="message-bubble">Typing...</div>
-      </div>
-    {/if}
   </div>
-
   <footer>
-    <input
-      type="text"
-      placeholder="Type your message..."
-      bind:value={userPrompt}
-      on:keydown={(e) => e.key === "Enter" && generateContent()}
-      disabled={isLoading}
-    />
-    <button on:click={generateContent} disabled={isLoading || !userPrompt}>
-      Send
-    </button>
+    <div class="input-container">
+      <input
+        type="text"
+        bind:value={userPrompt}
+        class="input-field"
+        placeholder="Type your message..."
+        on:keydown={(e) => e.key === 'Enter' && generateContent()}
+      />
+      <button class="send-button" on:click={generateContent}>Send</button>
+    </div>
   </footer>
 </div>
