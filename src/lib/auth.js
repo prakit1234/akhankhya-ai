@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 // Initialize Supabase client with environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL; // Your Supabase URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_KEY; // Your Supabase API key
-const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Function to sign out the user
 export const signOut = async () => {
