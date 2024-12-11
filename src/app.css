@@ -8,13 +8,30 @@
 }
 
 body {
-  font-family: 'Poppins', Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
-  background: #121212;
-  color: white;
+  font-family: 'Poppins', sans-serif;
+  background-color: #121212;
+  color: #ffffff;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
+  line-height: 1.6;
+  font-size: 16px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
 }
