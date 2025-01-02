@@ -44,7 +44,7 @@
     messages = [...messages, { role: "ai", content: "..." }]; // Placeholder for AI response
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-exp-1206" });
+      const model = genAI.getGenerativeModel({ model: "Gemini 1.5 Pro" });
       const result = await model.generateContent(currentPrompt);
       
       // Replace the placeholder with the actual AI response
